@@ -1,8 +1,6 @@
 import os
-import pushed
 import re
 import time
-import yaml
 
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
@@ -11,21 +9,20 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+if os.path.exists('creds.yaml'):
+    import yaml
+    with open("creds.yaml", "r") as ymlfile:
+        cfg = yaml.safe_load(stream=ymlfile)
+else:
+    cfg = {}
 
-with open("creds.yaml", "r") as ymlfile:
-    cfg = yaml.safe_load(stream=ymlfile)
 
+if 'Testing' in cfg:
+    testing = cfg['Testing']
+else:
+    testing = False
 
 # month = int(time.strftime('%b'))
-testing = cfg['Testing']
-
-
-class Test:
-
-    def push_app(self, st):
-        print('Simulated:', st)
-
-
 # if month == 12 or month < 4:
 #    semester = 2  # Fall
 # else:
@@ -36,9 +33,7 @@ class Test:
 
 print('Started', time.strftime('%d%b at %H:%M'))
 
-
 print('If this fails to login, change the password in creds.yaml.')
-
 
 if 'netID' not in cfg or not cfg['netID']:
     print('''Add netID and password to creds.yaml to remove the need to type this in every time.
@@ -60,8 +55,15 @@ else:
 if testing or 'APP_KEY' not in cfg or 'APP_SECRET' not in cfg or not cfg['APP_KEY'] or not cfg['APP_SECRET']:
 # If it's testing or if they're not there or blank.
     print('Add APP_KEY and APP_SECRET to creds.yaml if you want to use Pushed for notifications')
-    p = Test()
+
+    class TerminalPush:
+
+        def push_app(self, st):
+            print('Simulated:', st)
+
+    p = TerminalPush()
 else:
+    import pushed
     p = pushed.Pushed(cfg['APP_KEY'], cfg['APP_SECRET'])
 
 
@@ -94,7 +96,6 @@ def browser_login(browser, netID, password):
     action.perform()
     time.sleep(1)
 
-    # p.push_app('It\'s me...')
     print('Requesting MFA...')
     browser.set_window_size(size['width'], size['height'])
     current_url = browser.current_url
