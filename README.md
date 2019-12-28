@@ -9,4 +9,5 @@ Starts up a headless browser that logs in and checks your grades. Refreshes ever
 - Run `python3 gpa_main.py`
 
 **Known Issues**
+
 For some reason, it runs for approximately 18 hours before the site doesn't load the same. Maybe the cookie session expired? Could 'Remember me for 1 day' double the time till we need to do MFA again? I'm exploring this right now to see what's causing it.
