@@ -25,8 +25,6 @@ class Test:
     def push_app(self, st):
         print('Simulated:', st)
 
-    def __repr__(self):
-        return 'Teeessttt'
 
 # if month == 12 or month < 4:
 #    semester = 2  # Fall
@@ -76,7 +74,7 @@ def browser_init():
     return browser
 
 
-def browser_login(browser, netID):
+def browser_login(browser, netID, password):
     browser.get('http://albert.nyu.edu')
     print('Browser started and at Albert...')
     browser.find_element_by_link_text('Sign in to Albert').click()  # Clicks the login thing
@@ -140,20 +138,19 @@ def UpdateGrades(browser, p, grades_list):
         grades = '\n'.join(grades)
         print(grades)
         print('Last refreshed:', time.strftime('%d%b at %H:%M'))
-        return False  # Did it die?
+        return False  # Did it crash?
     except Exception as e:
         print('------------------------------------------------------------------------\n'
-              'There was an error. If this doesn\'t keep breaking, the except worked\n')
-        print("Just in case it doesn't fix it, here's the exception\n", str(e))
+              'There was an error. Here\'s the exception\n', str(e))
         with open('ErrorLog.txt', 'a') as file:
             print(time.strftime('%d%b at %H:%M:%S'), '\n', str(e), '\n--------\n', file=file)
-        p.push_app('App died')
-        return True  # Did it die?
+        p.push_app('App crashed')
+        return True  # Did it crash?
 
 
 def run(netID, p, password):
     browser = browser_init()
-    browser_login(browser, netID)
+    browser_login(browser, netID, password)
     del netID, password
     grades_list = {}
     if not testing:
@@ -166,9 +163,9 @@ def run(netID, p, password):
 
     time.sleep(sleeptime)
 
-    Died = False
-    while not Died:
-        Died = UpdateGrades(browser, p, grades_list)
+    crashed = False
+    while not crashed:
+        crashed = UpdateGrades(browser, p, grades_list)
         GPAref = UpdateGPA(browser, p, GPAref)
 
         time.sleep(sleeptime)
@@ -176,4 +173,4 @@ def run(netID, p, password):
     return browser, p
 
 
-browser, p = run(netID, p, password)  # For when I run in console then do commands after
+browser, p = run(netID, p, password)  # For debugging.
