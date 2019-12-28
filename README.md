@@ -1,4 +1,4 @@
-# Albert-Grade-Checker
+# Albert Grade Checker
 
 Starts up a headless browser that logs in and checks your grades. Refreshes every 10 minutes because there is a 20 minute timeout. 
 
