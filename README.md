@@ -11,3 +11,7 @@ Starts up a headless browser that logs in and checks your grades. Refreshes ever
 **Known Issues**
 
 For some reason, it runs for approximately 18 hours before the site doesn't load the same. Maybe the cookie session expired? Could 'Remember me for 1 day' double the time till we need to do MFA again? I'm exploring this right now to see what's causing it.
+
+**License**
+
+GNU Public License v3. Feel free to use this however you want, but it must be open-sourced if you fork it.
