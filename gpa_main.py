@@ -35,8 +35,6 @@ else:
 
 print('Started', time.strftime('%d%b at %H:%M'))
 
-print('If this fails to login, change the password in creds.yaml.')
-
 if 'netID' not in cfg or not cfg['netID']:
     print('''Add netID and password to creds.yaml to remove the need to type this in every time.
     Or just put your netID and it will just ask for the password.
@@ -47,6 +45,7 @@ if 'netID' not in cfg or not cfg['netID']:
     but for now,''')
     netID = input('netID?\n')
 else:
+    print('If this fails to login, ensure the netID/password in creds.yaml are correct.')
     netID = cfg['netID']
 
 if 'password' not in cfg or not cfg['password']:
@@ -56,13 +55,11 @@ else:
 
 if testing or 'APP_KEY' not in cfg or 'APP_SECRET' not in cfg or not cfg['APP_KEY'] or not cfg['APP_SECRET']:
     # If it's testing or if they're not there or blank.
-    print('Add APP_KEY and APP_SECRET to creds.yaml if you want to use Pushed for notifications')
-
-
+    print('Add Pushed APP_KEY and APP_SECRET to creds.yaml if you want to use Pushed for notifications')
     class TerminalPush:
 
         def push_app(self, st):
-            print('Simulated:', st)
+            print(st)
 
 
     p = TerminalPush()
@@ -91,11 +88,12 @@ def browser_login(browser):
     print('Browser started and at Albert...')
     browser.find_element_by_link_text('Sign in to Albert').click()  # Clicks the login thing
 
-    browser.find_element_by_id('netid').send_keys(netID)
-    browser.find_element_by_id('password').send_keys(password)
+    if browser.find_elements_by_id('netid'):
+        browser.find_element_by_id('netid').send_keys(netID)
+        browser.find_element_by_id('password').send_keys(password)
 
-    browser.find_element_by_name('_eventId_proceed').click()
-    print('Browser logged in...')
+        browser.find_element_by_name('_eventId_proceed').click()
+        print('Browser logged in...')
     time.sleep(3)
 
     if 'shibboleth' in browser.current_url:
@@ -106,31 +104,37 @@ def browser_login(browser):
         action = ActionChains(browser)  # Security features don't allow selenium to click things with precision
         action.move_by_offset(200, 430).click()  # Remember me for 1 day
         action.pause(0.1)
-        action.move_by_offset(0, -130).click().perform()  # Send Me a Push
+        action.move_by_offset(0, -130).click()  # Send Me a Push
+        action.pause(0.1)
+        action.move_by_offset(-200, -300).perform()  # Reset mouse position
         print('Requesting MFA...')
 
         wait_page_change(browser)
         browser.set_window_size(size['width'], size['height'])
         print('MFA successful...')
+        print('Next MFA request will be approximately',
+              time.strftime('%d%b at %H:%M', time.gmtime(time.time() + (28 * 3600))), 'EST')
 
 
-def UpdateGPA(browser, GPAref):
-    a = browser.find_elements_by_xpath('//h2')  # This is ugly but there's no name for it and the xpath index varied...
+def UpdateGPA(browser, GPAref, pushBool):
+    a = browser.find_elements_by_xpath('//h2')
     if not a:
-        browser.back()
-        browser.refresh()
+        browser.get(
+            'https://sis.portal.nyu.edu/psp/ihprod/EMPLOYEE/EMPL/h/?tab=IS_SSS_TAB&jsconfig=IS_ED_SSS_GRADESLnk')
+        a = browser.find_elements_by_xpath('//h2')  # We could do it recursively but if it won't work, it'd cause a loop
     for i in a:
         b = re.search(r'\d\.\d{3}', i.text)
         if b:
             b = b[0]
-            if b != GPAref:
-                p.push_app('New GPA: ' + str(b))
+            if b != GPAref:  # This is ugly but there's no name for it and the xpath index varied between 0 and 13...
+                if pushBool:
+                    p.push_app('New GPA: ' + str(b))
                 GPAref = b
             break
     return GPAref
 
 
-def UpdateGrades(browser):
+def UpdateGrades(browser, pushBool):
     try:
         browser.get(
             'https://sis.portal.nyu.edu/psp/ihprod/EMPLOYEE/EMPL/h/?tab=IS_SSS_TAB&jsconfig=IS_ED_SSS_GRADESLnk')
@@ -145,23 +149,25 @@ def UpdateGrades(browser):
             EC.presence_of_element_located((By.CSS_SELECTOR, "#IS_ED_SSS_GRADESLnk > span")))
         time.sleep(3)
         c = browser.find_elements_by_xpath('//div[4]/div[2]/table/tbody/tr/td')
-        print('\n\n\n')
+        # print('\n\n\n')
         grades = []
         for i in range(1, len(c), 6):
             if not re.search(r'EXAMINATION HOUR', c[i].text):
                 grades.append(c[i].text + ' ' * (31 - len(c[i].text)) + ' ' + c[i + 4].text)
                 if c[i].text not in grades_list and c[i + 4].text != ' ':
                     grades_list[c[i].text] = c[i + 4].text
-                    p.push_app(c[i].text + ': ' + c[i + 4].text)
+                    if pushBool:
+                        p.push_app(c[i].text + ': ' + c[i + 4].text)
         grades = '\n'.join(grades)
-        print(grades)
-        print('Last refreshed:', time.strftime('%d%b at %H:%M'))
+        # print(grades)
+        # print('Last refreshed:', time.strftime('%d%b at %H:%M'))
 
     except Exception as e:
-        print('------------------------------------------------------------------------\n'
-              'There was an error. Here\'s the exception\n', str(e))
+        print('--------', 'There was an error. Here\'s the exception', str(e), sep='\n')
         with open('ErrorLog.txt', 'a') as file:
-            print(time.strftime('%d%b at %H:%M:%S'), '\n', str(e), '\n--------\n', file=file)
+            print(time.strftime('%d%b at %H:%M:%S'), '\n', str(e), file=file, sep='')
+            print('Current URL:', browser.current_url, file=file)
+            print('--------', file=file)
 
 
 def run():
@@ -172,16 +178,17 @@ def run():
     else:
         sleeptime = 30
 
-    UpdateGrades(browser)
-    GPAref = UpdateGPA(browser, '0')
+    UpdateGrades(browser, False)  # We'll assume the user knows their grades when it starts
+    GPAref = UpdateGPA(browser, '0', False)
 
     time.sleep(sleeptime)
 
     while True:
-        UpdateGrades(browser)
-        GPAref = UpdateGPA(browser, GPAref)
+        UpdateGrades(browser, True)
+        GPAref = UpdateGPA(browser, GPAref, True)
 
         time.sleep(sleeptime)
 
 
-run()
+if not testing:
+    run()
