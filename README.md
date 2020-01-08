@@ -4,10 +4,11 @@ Starts up a headless browser that logs in and checks your grades. Refreshes ever
 
 **Requirements**
 
-    selenium
     Most recent version of Firefox
-    yaml (optional, for storing your credentials)
-    pushed (optional, for mobile notifications)
+    Python 3:    
+        selenium
+        yaml (optional, for storing your credentials)
+        pushed (optional, for mobile notifications)
 
 **How to Run**
 - Clone the project with `git clone https://github.com/jetwhisperer/Albert-Grade-Checker.git` 

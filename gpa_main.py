@@ -24,6 +24,9 @@ if 'Testing' in cfg:
 else:
     testing = False
 
+unreleased_classes = []
+maxClassNameLen = 0
+
 # month = int(time.strftime('%b'))
 # if month == 12 or month < 4:
 #    semester = 2  # Fall
@@ -93,12 +96,12 @@ def browser_login(browser):
         browser.find_element_by_id('password').send_keys(password)
 
         browser.find_element_by_name('_eventId_proceed').click()
-        print('Browser logged in...')
+        print('Browser logged in at', time.strftime('%H:%M, %d%b', time.gmtime(time.time() + (28 * 3600))), 'EST...')
     time.sleep(3)
 
     if 'shibboleth' in browser.current_url:
         size = browser.get_window_size()
-        browser.set_window_size(500, 510)
+        browser.set_window_size(500, 510)  # Standardized window size to click the buttons in
         time.sleep(0.5)
 
         action = ActionChains(browser)  # Security features don't allow selenium to click things with precision
@@ -112,8 +115,8 @@ def browser_login(browser):
         wait_page_change(browser)
         browser.set_window_size(size['width'], size['height'])
         print('MFA successful...')
-        print('Next MFA request will be approximately',
-              time.strftime('%d%b at %H:%M', time.gmtime(time.time() + (28 * 3600))), 'EST')
+        print('\nNext MFA request will be approximately',
+              time.strftime('%d%b at %H:%M', time.gmtime(time.time() + (28 * 3600))), 'EST\n')
 
 
 def UpdateGPA(browser, GPAref, pushBool):
@@ -148,19 +151,34 @@ def UpdateGrades(browser, pushBool):
         WebDriverWait(browser, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "#IS_ED_SSS_GRADESLnk > span")))
         time.sleep(3)
-        c = browser.find_elements_by_xpath('//div[4]/div[2]/table/tbody/tr/td')
+        gradeTable = browser.find_elements_by_xpath('//div[4]/div[2]/table/tbody/tr/td')
         # print('\n\n\n')
         grades = []
-        for i in range(1, len(c), 6):
-            if not re.search(r'EXAMINATION HOUR', c[i].text):
-                grades.append(c[i].text + ' ' * (31 - len(c[i].text)) + ' ' + c[i + 4].text)
-                if c[i].text not in grades_list and c[i + 4].text != ' ':
-                    grades_list[c[i].text] = c[i + 4].text
+
+        if not pushBool:
+            maxClassNameLen = max([len(gradeTable[i].text) for i in range(1, len(gradeTable), 6)])
+            unreleased_classes = [i for i in range(1, len(gradeTable), 6)]
+
+        ind = 0
+        while ind < len(unreleased_classes):
+            i = unreleased_classes[ind]
+            if not re.search(r'EXAMINATION HOUR', gradeTable[i].text):
+                grades.append(gradeTable[i].text + ' ' * (maxClassNameLen + 1 - len(gradeTable[i].text)) + gradeTable[i + 4].text)
+                fdsaf = gradeTable[i].text
+                if gradeTable[i].text not in grades_list and gradeTable[i + 4].text != ' ':
+                    grades_list[gradeTable[i].text] = gradeTable[i + 4].text
+                    unreleased_classes.pop(ind)
                     if pushBool:
-                        p.push_app(c[i].text + ': ' + c[i + 4].text)
+                        p.push_app(gradeTable[i].text + ': ' + gradeTable[i + 4].text)
+                else:
+                    ind += 1
+            else:
+                unreleased_classes.pop(ind)
+
         grades = '\n'.join(grades)
         # print(grades)
         # print('Last refreshed:', time.strftime('%d%b at %H:%M'))
+        return grades
 
     except Exception as e:
         print('--------', 'There was an error. Here\'s the exception', str(e), sep='\n')
@@ -176,10 +194,11 @@ def run():
     if not testing:
         sleeptime = 600  # seconds
     else:
-        sleeptime = 30
+        sleeptime = 10
 
-    UpdateGrades(browser, False)  # We'll assume the user knows their grades when it starts
+    print(UpdateGrades(browser, False))  # Show the user their initial grades in case it changed
     GPAref = UpdateGPA(browser, '0', False)
+    print('Your GPA is', GPAref)
 
     time.sleep(sleeptime)
 
@@ -190,5 +209,5 @@ def run():
         time.sleep(sleeptime)
 
 
-if not testing:
+if testing:
     run()
