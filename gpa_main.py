@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import getpass
 
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
@@ -31,11 +32,10 @@ maxClassNameLen = 0
 print('Started', time.strftime('%d%b at %H:%M'))
 
 if 'netID' not in cfg or not cfg['netID']:
-    print('''Add netID and password to creds.yaml to remove the need to type this in every time.
-    Or just put your netID and it will just ask for the password.
+    print('''Add netID to creds.yaml to remove the need to type this in every time.
+    it will just ask for the password.
     Example:
     netID: abc123
-    password: password
     
     but for now,''')
     netID = input('netID?\n')
@@ -43,10 +43,8 @@ else:
     print('If this fails to login, ensure the netID/password in creds.yaml are correct.')
     netID = cfg['netID']
 
-if 'password' not in cfg or not cfg['password']:
-    password = input('Password?\n')
-else:
-    password = cfg['password']
+password = getpass.getpass()
+
 
 if testing or 'APP_KEY' not in cfg or 'APP_SECRET' not in cfg or not cfg['APP_KEY'] or not cfg['APP_SECRET']:
     # If it's testing or if they're not there or blank.
