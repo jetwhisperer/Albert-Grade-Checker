@@ -144,12 +144,25 @@ def updateGrades(browser, pushBool):
         browser.get(
             'https://sis.portal.nyu.edu/psp/ihprod/EMPLOYEE/EMPL/h/?tab=IS_SSS_TAB&jsconfig=IS_ED_SSS_GRADESLnk')
 
-        WebDriverWait(browser, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "#IS_ED_SSS_GRADESLnk > span")))
-        time.sleep(3)
-        gradeTable = browser.find_elements_by_xpath('//div[4]/div[2]/table/tbody/tr/td')
-        # print('\n\n\n')
-        grades = []
+    WebDriverWait(browser, 15).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "#IS_ED_SSS_GRADESLnk > span")))
+    time.sleep(3)
+
+    latest_next_sem = browser.find_elements_by_xpath('//div[4]/div/h4')
+    currMo = time.strftime('%b')
+    if len(latest_next_sem) == 1:  # Either a Fall Grad or it's the Spring Semester, not Senior Year.
+        if currMo == 'Dec' or currMo == 'Jan':
+            gradeTable = browser.find_elements_by_xpath('//div[4]/div[1]/table/tbody/tr/td')  # Fall Grad
+        else:
+            gradeTable = browser.find_elements_by_xpath('//div[5]/div[1]/table/tbody/tr/td')  # Spring Semester
+    else:
+        if currMo == 'May' or currMo == 'Jun':
+            gradeTable = browser.find_elements_by_xpath('//div[4]/div[1]/table/tbody/tr/td')  # Senior Spring Grades
+        else:
+            gradeTable = browser.find_elements_by_xpath('//div[4]/div[2]/table/tbody/tr/td')  # Fall Grades
+
+    # print('\n\n\n')
+    grades = []
 
     if not pushBool:
         maxClassNameLen = max([len(gradeTable[i].text) for i in range(1, len(gradeTable), 6)])
