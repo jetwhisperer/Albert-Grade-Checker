@@ -17,24 +17,16 @@ if os.path.exists('creds.yaml'):
 else:
     cfg = {}
 
-grades_list = {}
 
 if 'Testing' in cfg:
     testing = cfg['Testing']
 else:
     testing = False
 
+# Globals
+grades_list = {}
 unreleased_classes = []
 maxClassNameLen = 0
-
-# month = int(time.strftime('%b'))
-# if month == 12 or month < 4:
-#    semester = 2  # Fall
-# else:
-#    semester = 1  # Spring
-#  TODO: This is because it shows the Fall and Spring semesters in a Table though
-#        Spring hasn't happened. Or is this even necessary? Does it always have
-#        one more? Unless you're graduating? Please let me know
 
 print('Started', time.strftime('%d%b at %H:%M'))
 
@@ -71,13 +63,15 @@ else:
 
     p = pushed.Pushed(cfg['APP_KEY'], cfg['APP_SECRET'])
 
+# TODO: Move all defs to their own import module. Not like this is hard
 
-def wait_page_change(browser):
+
+def waitPageChange(browser):
     current_url = browser.current_url
     WebDriverWait(browser, 600).until(EC.url_changes(current_url))
 
 
-def browser_init():
+def browserInit():
     options = Options()
     if not testing:
         options.add_argument('-headless')
@@ -86,7 +80,7 @@ def browser_init():
     return browser
 
 
-def browser_login(browser):
+def browserLogin(browser):
     browser.get('http://albert.nyu.edu')
     print('Browser started and at Albert...')
     browser.find_element_by_link_text('Sign in to Albert').click()  # Clicks the login thing
@@ -110,21 +104,23 @@ def browser_login(browser):
         action.move_by_offset(0, -130).click()  # Send Me a Push
         action.pause(0.1)
         action.move_by_offset(-200, -300).perform()  # Reset mouse position
-        print('Requesting MFA...')
 
-        wait_page_change(browser)
+        print('Requesting MFA...')
+        waitPageChange(browser)
         browser.set_window_size(size['width'], size['height'])
         print('MFA successful...')
         print('\nNext MFA request will be approximately',
               time.strftime('%d%b at %H:%M', time.gmtime(time.time() + (28 * 3600))), 'EST\n')
 
 
-def UpdateGPA(browser, GPAref, pushBool):
+def updateGPA(browser, GPAref, pushBool):
     a = browser.find_elements_by_xpath('//h2')
+
     if not a:
         browser.get(
             'https://sis.portal.nyu.edu/psp/ihprod/EMPLOYEE/EMPL/h/?tab=IS_SSS_TAB&jsconfig=IS_ED_SSS_GRADESLnk')
-        a = browser.find_elements_by_xpath('//h2')  # We could do it recursively but if it won't work, it'd cause a loop
+        a = browser.find_elements_by_xpath('//h2')
+
     for i in a:
         b = re.search(r'\d\.\d{3}', i.text)
         if b:
@@ -133,20 +129,22 @@ def UpdateGPA(browser, GPAref, pushBool):
                 if pushBool:
                     p.push_app('New GPA: ' + str(b))
                 GPAref = b
+                print('Your GPA is', GPAref)
             break
     return GPAref
 
 
-def UpdateGrades(browser, pushBool):
-    try:
+def updateGrades(browser, pushBool):
+    global unreleased_classes
+    global maxClassNameLen
+    browser.get(
+        'https://sis.portal.nyu.edu/psp/ihprod/EMPLOYEE/EMPL/h/?tab=IS_SSS_TAB&jsconfig=IS_ED_SSS_GRADESLnk')
+    time.sleep(1)
+
+    if 'shibboleth' in browser.current_url:
+        browserLogin(browser)
         browser.get(
             'https://sis.portal.nyu.edu/psp/ihprod/EMPLOYEE/EMPL/h/?tab=IS_SSS_TAB&jsconfig=IS_ED_SSS_GRADESLnk')
-        time.sleep(1)
-
-        if 'shibboleth' in browser.current_url:
-            browser_login(browser)
-            browser.get(
-                'https://sis.portal.nyu.edu/psp/ihprod/EMPLOYEE/EMPL/h/?tab=IS_SSS_TAB&jsconfig=IS_ED_SSS_GRADESLnk')
 
         WebDriverWait(browser, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "#IS_ED_SSS_GRADESLnk > span")))
@@ -155,59 +153,65 @@ def UpdateGrades(browser, pushBool):
         # print('\n\n\n')
         grades = []
 
-        if not pushBool:
-            maxClassNameLen = max([len(gradeTable[i].text) for i in range(1, len(gradeTable), 6)])
-            unreleased_classes = [i for i in range(1, len(gradeTable), 6)]
+    if not pushBool:
+        maxClassNameLen = max([len(gradeTable[i].text) for i in range(1, len(gradeTable), 6)])
+        unreleased_classes = [i for i in range(1, len(gradeTable), 6)]
 
-        ind = 0
-        while ind < len(unreleased_classes):
-            i = unreleased_classes[ind]
-            if not re.search(r'EXAMINATION HOUR', gradeTable[i].text):
-                grades.append(gradeTable[i].text + ' ' * (maxClassNameLen + 1 - len(gradeTable[i].text)) + gradeTable[i + 4].text)
-                fdsaf = gradeTable[i].text
-                if gradeTable[i].text not in grades_list and gradeTable[i + 4].text != ' ':
-                    grades_list[gradeTable[i].text] = gradeTable[i + 4].text
-                    unreleased_classes.pop(ind)
-                    if pushBool:
-                        p.push_app(gradeTable[i].text + ': ' + gradeTable[i + 4].text)
-                else:
-                    ind += 1
-            else:
+    ind = 0
+    while ind < len(unreleased_classes):
+        i = unreleased_classes[ind]
+        if not re.search(r'EXAMINATION HOUR', gradeTable[i].text):
+            grades.append(gradeTable[i].text + ' ' * (maxClassNameLen + 1 - len(gradeTable[i].text)) + gradeTable[i + 4].text)
+            fdsaf = gradeTable[i].text
+            if gradeTable[i].text not in grades_list and gradeTable[i + 4].text != ' ':
+                grades_list[gradeTable[i].text] = gradeTable[i + 4].text
                 unreleased_classes.pop(ind)
+                if pushBool:
+                    p.push_app(gradeTable[i].text + ': ' + gradeTable[i + 4].text)
+            else:
+                ind += 1
+        else:
+            unreleased_classes.pop(ind)
 
-        grades = '\n'.join(grades)
-        # print(grades)
-        # print('Last refreshed:', time.strftime('%d%b at %H:%M'))
-        return grades
-
-    except Exception as e:
-        print('--------', 'There was an error. Here\'s the exception', str(e), sep='\n')
-        with open('ErrorLog.txt', 'a') as file:
-            print(time.strftime('%d%b at %H:%M:%S'), '\n', str(e), file=file, sep='')
-            print('Current URL:', browser.current_url, file=file)
-            print('--------', file=file)
+    grades = '\n'.join(grades)
+    print('\rLast refreshed:', time.strftime('%d%b at %H:%M'), '               ', end='')
+    return grades
 
 
 def run():
-    browser = browser_init()
-    browser_login(browser)
+    browser = browserInit()
+    browserLogin(browser)
     if not testing:
         sleeptime = 600  # seconds
     else:
         sleeptime = 10
 
-    print(UpdateGrades(browser, False))  # Show the user their initial grades in case it changed
-    GPAref = UpdateGPA(browser, '0', False)
-    print('Your GPA is', GPAref)
+    print("\n" + updateGrades(browser, False))  # Show the user their initial grades in case it changed
+    GPAref = updateGPA(browser, '0', False)
 
     time.sleep(sleeptime)
 
-    while True:
-        UpdateGrades(browser, True)
-        GPAref = UpdateGPA(browser, GPAref, True)
+    try:
+        while True:
+            try:
+                updateGrades(browser, True)
+                GPAref = updateGPA(browser, GPAref, True)
 
-        time.sleep(sleeptime)
+                time.sleep(sleeptime)
+
+            except KeyboardInterrupt:
+                print("Have a good day!\n")
+                break
+
+            except Exception as e:
+                print('--------', 'There was an error. Here\'s the exception', str(e), sep='\n')
+                with open('ErrorLog.txt', 'a') as file:
+                    print(time.strftime('%d%b at %H:%M:%S'), '\n', str(e), file=file, sep='')
+                    print('Current URL:', browser.current_url, file=file)
+                    print('--------', file=file)
+
+    finally:
+        browser.close()
 
 
-if testing:
-    run()
+run()
