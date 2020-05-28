@@ -75,12 +75,20 @@ def browserInit(visible=False):
     browser = webdriver.Firefox(executable_path=os.getcwd() + '/geckodriver', options=options)
     return browser
 
+def clickTheButtons(action, locs):
+    currPos = [0, 0]
+    for x, y in locs:
+        action.move_by_offset(x - currPos[0], y - currPos[1]).click()
+        action.pause(0.1)
+        currPos = [x, y]
+    action.move_by_offset(0 - currPos[0], 0 - currPos[1]).perform()
 
 
 def browserLogin(browser):
     browser.get('http://albert.nyu.edu')
     print('Browser started and at Albert...')
     browser.find_element_by_link_text('Sign in to Albert').click()  # Clicks the login thing
+    buttonLocs = [[78, 434], [245, 278]]
 
     if browser.find_elements_by_id('netid'):
         browser.find_element_by_id('netid').send_keys(netID)
@@ -100,13 +108,8 @@ def browserLogin(browser):
         time.sleep(0.5)
 
         action = ActionChains(browser)  # Security features don't allow selenium to click things with precision
-        action.move_by_offset(200, 430).click()  # Remember me for 1 day
-        # action.move_by_offset(100, 630).click()  # Remember me for 1 day
-        action.pause(.1)
-        action.move_by_offset(0, -180).click()  # Send Me a Push
-        action.pause(.1)
-        action.move_by_offset(-200, -250).perform()  # Reset mouse position
-        # action.move_by_offset(-100, -500).perform()  # Reset mouse position
+        clickTheButtons(action, buttonLocs)
+
 
         print('Requesting MFA...')
         waitPageChange(browser)
