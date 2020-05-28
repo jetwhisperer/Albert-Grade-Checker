@@ -1,6 +1,7 @@
 import re
 import os
 import time
+import getpass
 
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
@@ -8,6 +9,57 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+
+if os.path.exists('creds.yaml'):
+    import yaml
+
+    with open("creds.yaml", "r") as ymlfile:
+        cfg = yaml.safe_load(stream=ymlfile)
+else:
+    cfg = {}
+
+
+if 'Testing' in cfg:
+    testing = cfg['Testing']
+else:
+    testing = False
+
+# Globals
+grades_list = {}
+unreleased_classes = []
+maxClassNameLen = 0
+
+print('Started', time.strftime('%d%b at %H:%M'))
+
+
+if 'netID' not in cfg or not cfg['netID']:
+    print('''Add netID to creds.yaml to remove the need to type this in every time.
+    it will just ask for the password.
+    Example:
+    netID: abc123
+
+    but for now,''')
+    netID = input('netID?\n')
+else:
+    print('If this fails to login, ensure the netID/password in creds.yaml are correct.')
+    netID = cfg['netID']
+
+password = getpass.getpass()
+
+if testing or 'APP_KEY' not in cfg or 'APP_SECRET' not in cfg or not cfg['APP_KEY'] or not cfg['APP_SECRET']:
+    # If it's testing or if they're not there or blank, we'll print to the console
+    print('Add Pushed APP_KEY and APP_SECRET to creds.yaml if you want to use Pushed for notifications')
+    class TerminalPush:
+
+        def push_app(self, st):
+            print(st)
+
+
+    p = TerminalPush()
+else:
+    import pushed
+
+    p = pushed.Pushed(cfg['APP_KEY'], cfg['APP_SECRET'])
 
 
 def waitPageChange(browser):
@@ -24,7 +76,8 @@ def browserInit(visible=False):
     return browser
 
 
-def browserLogin(browser, netID, password):
+
+def browserLogin(browser):
     browser.get('http://albert.nyu.edu')
     print('Browser started and at Albert...')
     browser.find_element_by_link_text('Sign in to Albert').click()  # Clicks the login thing
@@ -44,7 +97,6 @@ def browserLogin(browser, netID, password):
         """, browser.find_element_by_xpath('/html/body/div[1]'))
         size = browser.get_window_size()
         browser.set_window_size(500, 510)
-        # browser.set_window_size(500, 710)  # Standardized window size to click the buttons in
         time.sleep(0.5)
 
         action = ActionChains(browser)  # Security features don't allow selenium to click things with precision
@@ -64,7 +116,7 @@ def browserLogin(browser, netID, password):
               time.strftime('%d%b at %H:%M', time.gmtime(time.time() + (28 * 3600))), 'EST\n')
 
 
-def updateGPA(browser, GPAref, pushBool, p):
+def updateGPA(browser, GPAref, pushBool):
     a = browser.find_elements_by_xpath('//h2')
 
     if not a:
@@ -85,9 +137,11 @@ def updateGPA(browser, GPAref, pushBool, p):
     return GPAref
 
 
-def updateGrades(browser, pushBool, grades_list, p):
+def updateGrades(browser, pushBool):
     global unreleased_classes
     global maxClassNameLen
+    global netID
+    global password
     browser.get(
         'https://sis.portal.nyu.edu/psp/ihprod/EMPLOYEE/EMPL/h/?tab=IS_SSS_TAB&jsconfig=IS_ED_SSS_GRADESLnk')
     time.sleep(1)
@@ -124,12 +178,14 @@ def updateGrades(browser, pushBool, grades_list, p):
     ind = 0
     while ind < len(unreleased_classes):
         i = unreleased_classes[ind]
+
         if not re.search(r'EXAMINATION HOUR', gradeTable[i].text):
             grades.append(gradeTable[i].text + ' ' * (maxClassNameLen + 1 - len(gradeTable[i].text)) + gradeTable[i + 4].text)
-            fdsaf = gradeTable[i].text
+
             if gradeTable[i].text not in grades_list and gradeTable[i + 4].text != ' ':
                 grades_list[gradeTable[i].text] = gradeTable[i + 4].text
                 unreleased_classes.pop(ind)
+
                 if pushBool:
                     p.push_app(gradeTable[i].text + ': ' + gradeTable[i + 4].text)
             else:
