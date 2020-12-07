@@ -7,7 +7,7 @@ Starts up a headless browser that logs in and checks your grades. Refreshes ever
     Most recent version of Firefox
     Python 3:    
         selenium
-        yaml (optional, for storing your credentials)
+        yaml (optional, for storing your netID)
         pushed (optional, for mobile notifications)
 
 **How to Run**
